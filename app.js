@@ -200,11 +200,7 @@
     const providerKey = dom.apiProvider.value;
     const provider = getProvider();
     
-    let savedKey = localStorage.getItem(`loraPrepKey_${providerKey}`);
-    if (!savedKey && providerKey === 'groq') {
-      // Obfuscated to bypass GitHub Secret Scanning push protection
-      savedKey = 'gsk_' + '15SGZRG' + '2ORvuNj' + 'Jthm7UWG' + 'dyb3FY9' + 'AGq1eYi' + 'NYnXocc' + '3KP6zSBpF';
-    }
+    const savedKey = localStorage.getItem(`loraPrepKey_${providerKey}`);
     dom.apiKey.value = savedKey || '';
 
     dom.apiKeyLabel.textContent = `${provider.name} API Key`;
