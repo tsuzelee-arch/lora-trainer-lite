@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="LoRA 訓練資料集準備工具 — 智慧裁切、自動 Caption 生成、一鍵匯出" />
+  <title>LoRA Trainer Prep</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <div class="app-container">
+
+    <!-- ===== Header ===== -->
+    <header class="app-header">
+      <h1>✦ LoRA Trainer Prep</h1>
+      <p class="subtitle">智慧裁切 · 自動 Caption · 一鍵匯出訓練資料集</p>
+    </header>
+
+
+    <!-- ===== Config Panel ===== -->
+    <div class="panel">
+
+
+      <div class="form-row">
+        <div class="form-group" style="flex:1;">
+          <label>工作模式</label>
+          <div style="display: flex; gap: var(--space-md); margin-top: 8px;">
+            <label style="display: flex; align-items: center; gap: 6px; font-weight: normal;">
+              <input type="radio" name="workMode" value="single" checked />
+              單圖 LoRA
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; font-weight: normal;">
+              <input type="radio" name="workMode" value="sequence" />
+              首尾變化 LoRA (拼接模式)
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="apiProvider">API 供應商</label>
+          <select id="apiProvider">
+            <option value="gemini3">Gemini 2.5 Flash (免費)</option>
+            <option value="groq">Groq (meta-llama/llama-4-scout-17b-16e-instruct)</option>
+            <option value="ollama">Ollama (本地部署模型)</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="providerHint" class="provider-hint">
+        <span class="hint-icon">💡</span>
+        <span id="providerHintText">免費額度用盡？可切換至其他供應商。各家申請 Key 皆免費。</span>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group" style="flex:2;">
+          <label for="apiKey" id="apiKeyLabel">API Key</label>
+          <input type="password" id="apiKey" placeholder="輸入您的 API Key..." />
+        </div>
+        <div class="form-group" style="flex:0 0 auto;">
+          <button id="btnTestApi" class="btn btn-secondary">🔗 測試連線</button>
+        </div>
+      </div>
+
+      <div id="apiStatus" style="margin-bottom: var(--space-md);"></div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="resolution">解析度</label>
+          <select id="resolution">
+            <option value="1024">1024 × 1024</option>
+            <option value="512">512 × 512</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:2;">
+          <label for="mainCaption">觸發詞</label>
+          <input type="text" id="mainCaption" placeholder="例如：txcl, 1girl, my_character..." />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group" id="captionFormatGroup">
+          <label for="captionFormat">生成格式 <span id="formatHint" style="display:none; color:var(--primary); font-size:0.75rem;">(拼接強制自然語言)</span></label>
+          <select id="captionFormat">
+            <option value="tags">Tags 標籤 (逗號分隔)</option>
+            <option value="natural">自然語言 (描述性句子)</option>
+          </select>
+        </div>
+        <div class="form-group" id="subjectTypeGroup">
+          <label for="subjectType">訓練主體類型</label>
+          <select id="subjectType">
+            <option value="none">無 (一般描述)</option>
+            <option value="character">角色 (Character)</option>
+            <option value="style">風格 (Style)</option>
+            <option value="clothing">服裝 (Clothing)</option>
+            <option value="object">物件 (Object)</option>
+          </select>
+        </div>
+        <div class="form-group" id="sequenceSubjectGroup" style="display: none; flex: 2;">
+          <label for="sequenceSubject">變化情境描述 (首圖變化為尾圖)</label>
+          <input type="text" id="sequenceSubject" placeholder="例如：空房子裝修成有家具的房子..." />
+        </div>
+      </div>
+
+      <!-- Subject Reference & Exclusion Panel -->
+      <div id="subjectRefSection" class="subject-ref-section" style="display: none; border-top: 1px dashed var(--border); padding-top: var(--space-md); margin-top: var(--space-md); margin-bottom: var(--space-md);">
+        <div class="form-row">
+          <div class="form-group" style="flex: 1; min-width: 180px;">
+            <label>主體參考圖 (選填)</label>
+            <div id="refDropzone" class="ref-dropzone">
+              <span class="ref-icon">📸</span>
+              <p class="ref-drop-text">拖放或點擊上傳</p>
+              <input type="file" id="refImageInput" accept="image/*" style="display: none;" />
+              <div id="refPreviewWrapper" style="display: none; position: relative; margin-top: 5px;">
+                <img id="refImagePreview" src="" alt="Reference" style="max-height: 80px; width: auto; border-radius: var(--radius-sm); border: 1px solid var(--border);" />
+                <button id="btnRemoveRef" class="btn-delete" style="position: absolute; top: -5px; right: -5px; background: rgba(0,0,0,0.8); border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; border: none; cursor: pointer; color: var(--error);">✕</button>
+              </div>
+            </div>
+          </div>
+          <div class="form-group" style="flex: 2; display: flex; flex-direction: column;">
+            <label style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+              <span>訓練目標（可將不需要訓練的提示詞去除）</span>
+              <button id="btnDetectFeatures" class="btn btn-secondary btn-sm" style="padding: 2px 8px; font-size: 0.75rem; height: auto;" disabled>🔍 偵測特徵</button>
+            </label>
+            <textarea id="excludeFeatures" rows="3" placeholder="請上傳參考圖並點擊偵測，或在此以逗號分隔手動輸入特徵（例如：blonde hair, blue eyes...），這些特徵在訓練標註中將自動被忽略/以觸發詞代替。" style="font-size: 0.8rem;"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top: -5px; margin-bottom: 15px;">
+        <label style="display:flex; align-items:center; cursor:pointer; font-weight:normal; font-size:0.9rem;">
+          <input type="checkbox" id="overwriteCaptions" style="margin-right:8px; width:auto; accent-color:var(--primary);" />
+          重新生成已存在的 Caption (覆寫匯入的標註)
+        </label>
+      </div>
+
+      <div class="form-group">
+        <label for="captionPrompt">其他指令</label>
+        <textarea id="captionPrompt" rows="3" placeholder="prompt默認以英文生成"></textarea>
+      </div>
+    </div>
+
+    <!-- ===== Upload Zone ===== -->
+    <div class="panel">
+      <h2 class="panel-title"><span class="icon">📁</span> 上傳圖片</h2>
+      <div id="dropzone" class="dropzone">
+        <div class="drop-icon">🖼️</div>
+        <p class="drop-text">拖放圖片至此，或 <strong>點擊上傳</strong></p>
+        <p class="drop-hint">支援 JPG、PNG、WebP，也支援匯入<strong>已匯出的 ZIP 資料集</strong>與散裝 txt 標註檔</p>
+        <input type="file" id="fileInput" accept="image/*,.zip,.txt" multiple />
+      </div>
+    </div>
+
+    <!-- ===== Progress ===== -->
+    <div id="progressContainer" class="progress-container">
+      <div class="progress-label">
+        <span id="progressText">處理中...</span>
+        <span id="progressPercent">0%</span>
+      </div>
+      <div class="progress-bar">
+        <div id="progressFill" class="progress-bar-fill"></div>
+      </div>
+    </div>
+
+    <!-- ===== Preview Gallery ===== -->
+    <div class="panel">
+      <h2 class="panel-title"><span class="icon">🖼️</span> 預覽庫 <span id="imageCount" style="margin-left:auto; font-size:0.8rem; color:var(--text-muted); font-weight:400;">0 張圖片</span></h2>
+      <div id="gallery" class="gallery">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">📭</div>
+          <p>尚未上傳任何圖片</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Action Bar ===== -->
+    <div class="action-bar">
+      <button id="btnConfirmStitch" class="btn btn-primary" style="display: none;">
+        ✅ 確認拼接
+      </button>
+      <button id="btnCancelStitch" class="btn btn-secondary" style="display: none;">
+        ❌ 取消
+      </button>
+      <button id="btnProcess" class="btn btn-primary" disabled>
+        🚀 開始處理
+      </button>
+      <button id="btnStop" class="btn btn-warning" style="display: none;">
+        🛑 停止處理
+      </button>
+      <button id="btnExport" class="btn btn-success" disabled>
+        📦 匯出 ZIP
+      </button>
+      <button id="btnClear" class="btn btn-secondary" disabled>
+        🗑️ 清除全部
+      </button>
+    </div>
+
+  </div>
+
+  <!-- ===== External Dependencies (CDN) ===== -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+  <!-- App Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
