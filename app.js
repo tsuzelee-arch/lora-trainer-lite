@@ -75,34 +75,6 @@
       parseError: (data) => data?.error?.message || 'Unknown error',
     },
 
-    ollama: {
-      name: 'Ollama',
-      model: 'llama3.2-vision',
-      keyHint: '確保 Ollama 以 OLLAMA_ORIGINS="*" 啟動。留空預設 llama3.2-vision。',
-      testEndpoint: () => 'http://localhost:11434/api/chat',
-      buildTestBody: (modelInput) => ({
-        model: modelInput.trim() || 'llama3.2-vision',
-        messages: [{ role: 'user', content: 'Hello, reply with OK.' }],
-        stream: false,
-      }),
-      buildTestHeaders: () => ({ 'Content-Type': 'application/json' }),
-      captionEndpoint: () => 'http://localhost:11434/api/chat',
-      buildCaptionBody: (base64OrArray, prompt, modelInput) => {
-        const base64s = Array.isArray(base64OrArray) ? base64OrArray : [base64OrArray];
-        return {
-          model: modelInput.trim() || 'llama3.2-vision',
-          messages: [{
-            role: 'user',
-            content: prompt,
-            images: base64s
-          }],
-          stream: false,
-        };
-      },
-      buildCaptionHeaders: () => ({ 'Content-Type': 'application/json' }),
-      parseResponse: (data) => data?.message?.content || '',
-      parseError: (data) => data?.error || '請確認 Ollama 已啟動。',
-    },
   };
 
   // ──────────── State ────────────
@@ -231,15 +203,9 @@
     const savedKey = localStorage.getItem(`loraPrepKey_${providerKey}`);
     dom.apiKey.value = savedKey || '';
 
-    if (providerKey === 'ollama') {
-      dom.apiKeyLabel.textContent = 'Ollama 模型名稱';
-      dom.apiKey.placeholder = '例如: llama3.2-vision, moondream, llava...';
-      dom.apiKey.type = 'text';
-    } else {
-      dom.apiKeyLabel.textContent = `${provider.name} API Key`;
-      dom.apiKey.placeholder = `輸入您的 ${provider.name} API Key...`;
-      dom.apiKey.type = 'password';
-    }
+    dom.apiKeyLabel.textContent = `${provider.name} API Key`;
+    dom.apiKey.placeholder = `輸入您的 ${provider.name} API Key...`;
+    dom.apiKey.type = 'password';
     dom.providerHintText.textContent = provider.keyHint;
     dom.apiStatus.innerHTML = '';
     saveConfig();
@@ -249,7 +215,7 @@
   async function testApiConnection() {
     const key = dom.apiKey.value.trim();
     saveConfig(); // Save before test
-    if (!key && dom.apiProvider.value !== 'ollama') {
+    if (!key) {
       showToast('請先輸入 API Key', 'error');
       return;
     }
@@ -785,7 +751,7 @@
 
   async function generateCaption(entry, targetImgs, currentPercent) {
     const key = dom.apiKey.value.trim();
-    if (!key && dom.apiProvider.value !== 'ollama') throw new Error('API Key 未填入');
+    if (!key) throw new Error('API Key 未填入');
 
     const provider = getProvider();
     
@@ -944,7 +910,7 @@ ${customPrompt || 'Describe the main subject, clothing, pose, background, lighti
   // ──────────── Subject Feature Detection ────────────
   async function detectSubjectFeatures() {
     const key = dom.apiKey.value.trim();
-    if (!key && dom.apiProvider.value !== 'ollama') {
+    if (!key) {
       showToast('請先輸入 API Key 以進行偵測', 'error');
       return;
     }
@@ -1026,7 +992,7 @@ ${customPrompt || 'Describe the main subject, clothing, pose, background, lighti
     showProgress(true);
 
     const total = state.images.length;
-    const hasApiKey = dom.apiKey.value.trim().length > 0 || dom.apiProvider.value === 'ollama';
+    const hasApiKey = dom.apiKey.value.trim().length > 0;
     const targetSize = parseInt(dom.resolution.value, 10);
 
     // Lock all pending selected cards
